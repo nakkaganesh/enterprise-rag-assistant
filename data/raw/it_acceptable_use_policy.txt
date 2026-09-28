@@ -1,0 +1,17 @@
+
+IT ACCEPTABLE USE POLICY
+
+Policy IT-2026-501 governs acceptable use of company technology resources.
+
+Company computers, networks, email accounts, and software are primarily provided for authorized business activities.
+
+Limited personal use of company devices is permitted when it does not interfere with work, violate company policy, or create security risks.
+
+Employees must not install unauthorized software on company devices.
+
+Employees must protect company devices from unauthorized access.
+
+Company technology must not be used for illegal, abusive, discriminatory, or malicious activities.
+
+Lost or stolen company devices must be reported immediately to the IT department.
+EOF

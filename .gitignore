@@ -1,0 +1,27 @@
+# Environment variables / secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+
+# Generated vector database
+data/vector_store/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

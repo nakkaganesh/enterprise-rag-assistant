@@ -1,0 +1,7 @@
+INFORMATION SECURITY POLICY
+
+Policy SEC-2026-101 requires all employees to use multi-factor authentication for company systems.
+
+Employees must never share company passwords with another person.
+
+Security incidents must be reported immediately to the information security team.

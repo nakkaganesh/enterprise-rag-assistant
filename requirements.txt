@@ -1,0 +1,11 @@
+openai
+faiss-cpu
+numpy
+rank-bm25
+pypdf
+python-docx
+fastapi
+uvicorn
+python-multipart
+streamlit
+requests
