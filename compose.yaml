@@ -1,0 +1,47 @@
+services:
+
+  api:
+    build: .
+    container_name: enterprise-rag-api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - rag_data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    build: .
+    container_name: enterprise-rag-frontend
+    command:
+      [
+        "python",
+        "-m",
+        "streamlit",
+        "run",
+        "frontend/app.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501"
+      ]
+    ports:
+      - "8501:8501"
+    depends_on:
+       api:
+          condition : service_healthy
+    restart: unless-stopped
+
+volumes:
+  rag_data:
