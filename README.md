@@ -1,191 +1,298 @@
 # Enterprise RAG Assistant
 
-An end-to-end **Enterprise Retrieval-Augmented Generation (RAG) Assistant** for querying organizational documents using hybrid retrieval, reranking, grounded LLM generation, and evidence-based citations.
+A production-oriented **Retrieval-Augmented Generation (RAG)** application for answering questions from enterprise documents using hybrid retrieval, reranking, grounded LLM generation, and source citations.
 
-The system supports **TXT, PDF, and DOCX** documents and provides a FastAPI backend with a Streamlit chat interface.
+The system combines **FAISS semantic search** and **BM25 keyword search**, fuses retrieval results using **Reciprocal Rank Fusion (RRF)**, reranks candidate chunks, and sends the most relevant context to an LLM to generate grounded answers.
+
+The application includes a **FastAPI backend**, **Streamlit frontend**, automated tests, Docker containerization, and cloud deployment on Railway.
 
 ---
 
 ## Features
 
-- Multi-format document ingestion: TXT, PDF, DOCX
-- Recursive multi-document loading
+- Multi-format document ingestion
+  - PDF
+  - DOCX
+  - TXT
+- Text extraction and preprocessing
 - Configurable text chunking with overlap
 - Metadata preservation
 - OpenAI embeddings
-- FAISS semantic vector search
-- BM25 keyword retrieval
+- FAISS vector search
+- BM25 keyword search
 - Hybrid retrieval
 - Reciprocal Rank Fusion (RRF)
-- LLM-based reranking
-- Grounded answer generation
-- Evidence-based citations
-- Refusal when supporting information is unavailable
-- Persistent FAISS vector index
-- Automatic knowledge-base re-indexing
-- Document upload API
-- FastAPI REST backend
-- Streamlit chat interface
-- Automated RAG evaluation
+- Candidate retrieval and reranking
+- Context selection
+- Grounded LLM answer generation
+- Source citations
+- Chunk-level traceability
+- Unknown-question handling
+- Saved vector-store support
+- FastAPI REST API
+- Streamlit web interface
+- Docker containerization
+- Docker Compose orchestration
+- Health checks
 - Environment-based configuration
+- Automated testing with pytest
+- Railway cloud deployment
+
+---
+
+## Why Hybrid RAG?
+
+Vector search is useful for finding documents with similar **semantic meaning**, while BM25 is effective for **exact keywords, identifiers, policy numbers, and terminology**.
+
+Instead of depending on only one retrieval method, this project combines both.
+
+```text
+Semantic Search (FAISS)
+          +
+Keyword Search (BM25)
+          ↓
+Reciprocal Rank Fusion
+          ↓
+Better Candidate Retrieval
+```
+
+This provides a stronger retrieval pipeline for enterprise documents containing both natural-language concepts and exact business terminology.
 
 ---
 
 ## Architecture
 
+### Document Ingestion Pipeline
+
 ```text
-                     Enterprise Documents
-                    TXT / PDF / DOCX
-                           |
-                           v
-                  Document Ingestion
-                           |
-                           v
-                  Chunking + Metadata
-                           |
-             +-------------+-------------+
-             |                           |
-             v                           v
-      OpenAI Embeddings              BM25 Index
-             |                           |
-             v                           |
-        FAISS Index                      |
-             |                           |
-             +-------------+-------------+
-                           |
-                           v
+PDF / DOCX / TXT
+       ↓
+Document Loader
+       ↓
+Text Extraction
+       ↓
+Chunking + Overlap
+       ↓
+Metadata
+       ↓
+Embeddings
+       ↓
+FAISS Vector Index
+
+Chunks
+  ↓
+BM25 Keyword Index
+```
+
+### Question Answering Pipeline
+
+```text
                     User Question
-                           |
-             +-------------+-------------+
-             |                           |
-             v                           v
-      Semantic Search              Keyword Search
-          FAISS                        BM25
-             |                           |
-             +-------------+-------------+
-                           |
-                           v
-                Reciprocal Rank Fusion
-                         (RRF)
-                           |
-                           v
-                   Candidate Chunks
-                           |
-                           v
-                      Reranker
-                           |
-                           v
-                    Best Evidence
-                           |
-                           v
-                Grounded LLM Generation
-                           |
-                           v
-                Answer + Citations
-                           |
-                           v
-                    FastAPI Backend
-                           |
-                           v
-                   Streamlit Chat UI
+                         ↓
+                 Query Processing
+                         ↓
+              ┌──────────┴──────────┐
+              ↓                     ↓
+       FAISS Vector Search      BM25 Search
+       (Semantic Search)      (Keyword Search)
+              ↓                     ↓
+              └──────────┬──────────┘
+                         ↓
+            Reciprocal Rank Fusion
+                       (RRF)
+                         ↓
+                 Candidate Chunks
+                         ↓
+                     Reranker
+                         ↓
+                   Top Chunks
+                         ↓
+                Context Construction
+                         ↓
+                        LLM
+                         ↓
+              Grounded Answer
+                         +
+                  Source Citations
 ```
 
 ---
 
 ## RAG Pipeline
 
-### 1. Document Ingestion
+The complete RAG workflow implemented in this project is:
 
-Enterprise documents are loaded from the knowledge base.
+```text
+Load Documents
+      ↓
+Extract Text
+      ↓
+Chunk Documents
+      ↓
+Generate Embeddings
+      ↓
+Build FAISS Index
+      ↓
+Build BM25 Index
+      ↓
+User Query
+      ↓
+FAISS Search + BM25 Search
+      ↓
+RRF Fusion
+      ↓
+Candidate Retrieval
+      ↓
+Reranking
+      ↓
+Select Top Context
+      ↓
+LLM Generation
+      ↓
+Answer + Citations
+```
 
-Supported formats:
+---
 
-- `.txt`
-- `.pdf`
-- `.docx`
+## Retrieval Strategy
 
-### 2. Chunking
+### 1. Semantic Retrieval
 
-Documents are divided into smaller overlapping chunks.
+Document chunks are converted into vector embeddings.
 
-Metadata such as the source document and chunk identifier is preserved for retrieval and citation.
+FAISS searches the vector index to retrieve chunks that are semantically similar to the user's question.
 
-### 3. Embeddings
+This helps when the question and document express the same concept using different words.
 
-Chunks are converted into vector representations using OpenAI embeddings.
+### 2. Keyword Retrieval
 
-### 4. FAISS Semantic Retrieval
+BM25 performs lexical retrieval based on keywords and term importance.
 
-FAISS searches for chunks that are semantically similar to the user's question.
+This is useful for queries containing:
 
-### 5. BM25 Keyword Retrieval
+- Policy identifiers
+- Technical terminology
+- Product names
+- Exact phrases
+- Acronyms
+- Numbers
 
-BM25 provides lexical retrieval for exact words, identifiers, policy numbers, and other keyword-sensitive queries.
+### 3. Reciprocal Rank Fusion
+
+Results from FAISS and BM25 are combined using **Reciprocal Rank Fusion (RRF)**.
+
+Conceptually:
+
+```text
+RRF Score = Σ 1 / (k + rank)
+```
+
+Documents that rank highly across retrieval methods receive stronger combined scores.
+
+### 4. Reranking
+
+Hybrid retrieval intentionally returns more candidate chunks than are ultimately sent to the LLM.
 
 For example:
 
 ```text
-SEC-2026-101
+Hybrid Retrieval
+      ↓
+Top 15 candidates
+      ↓
+Reranker
+      ↓
+Top 5 chunks
+      ↓
+LLM
 ```
 
-### 6. Hybrid Search
+This improves context quality while reducing unnecessary LLM context usage.
 
-FAISS and BM25 results are combined to benefit from both semantic and lexical retrieval.
+---
 
-### 7. Reciprocal Rank Fusion
+## Source Citations
 
-RRF combines the independent FAISS and BM25 rankings without directly comparing their incompatible raw scores.
-
-### 8. Reranking
-
-The highest-ranked retrieval candidates are evaluated again for relevance to the user's question.
-
-### 9. Grounded Generation
-
-The LLM receives the question together with the selected document evidence and is instructed to answer only from that context.
-
-If the answer is unavailable, the assistant responds:
-
-```text
-I could not find this information in the provided documents.
-```
-
-### 10. Evidence-Based Citations
-
-Only chunks that directly support the generated answer are returned as citations.
+Answers include metadata identifying the source used to generate the response.
 
 Example:
 
-```text
-Question:
-What authentication is required under SEC-2026-101?
-
-Answer:
-Multi-factor authentication is required for all employees using company systems.
-
-Citation:
-security_policy.txt — Chunk 0
+```json
+{
+  "question": "How many days per week can employees work remotely?",
+  "answer": "Employees can work remotely up to three days per week.",
+  "citations": [
+    {
+      "source": "remote_work_policy.txt",
+      "page": null,
+      "chunk_id": 0
+    }
+  ]
+}
 ```
+
+This provides traceability between generated answers and retrieved enterprise documents.
+
+---
+
+## Hallucination Reduction
+
+The generation layer is designed to answer using retrieved document context rather than relying only on the LLM's internal knowledge.
+
+When sufficient supporting information is unavailable, the system is designed to avoid inventing unsupported information.
+
+This makes the architecture more appropriate for enterprise knowledge-assistant use cases.
 
 ---
 
 ## Tech Stack
 
-| Component | Technology |
-|---|---|
-| Language | Python |
-| Package Management | uv |
-| LLM / Embeddings | OpenAI |
-| Vector Search | FAISS |
-| Keyword Search | BM25 |
-| Rank Fusion | Reciprocal Rank Fusion |
-| Backend | FastAPI |
-| API Server | Uvicorn |
-| Frontend | Streamlit |
-| PDF Processing | PyPDF |
-| DOCX Processing | python-docx |
-| Testing | Pytest |
-| HTTP Client | Requests |
+### Language
+
+- Python 3.12
+
+### RAG / AI
+
+- OpenAI API
+- OpenAI Embeddings
+- FAISS
+- BM25
+- Reciprocal Rank Fusion
+- Reranking
+
+### Backend
+
+- FastAPI
+- Uvicorn
+
+### Frontend
+
+- Streamlit
+
+### Document Processing
+
+- PDF parsing
+- DOCX parsing
+- TXT processing
+
+### Testing
+
+- pytest
+
+### Environment & Dependency Management
+
+- uv
+- python-dotenv
+
+### DevOps
+
+- Docker
+- Docker Compose
+
+### Deployment
+
+- Railway
+- GitHub
 
 ---
 
@@ -195,29 +302,37 @@ security_policy.txt — Chunk 0
 enterprise-rag-assistant/
 │
 ├── data/
-│   ├── raw/
-│   ├── evaluation/
-│   └── vector_store/
+│
+├── frontend/
+│   └── app.py
 │
 ├── src/
 │   └── enterprise_rag/
+│       ├── __init__.py
+│       │
 │       ├── api/
-│       ├── chunking/
+│       │
 │       ├── core/
+│       │
 │       ├── embeddings/
-│       ├── evaluation/
+│       │
 │       ├── generation/
+│       │
 │       ├── ingestion/
-│       ├── retrieval/
-│       └── ui/
+│       │
+│       └── retrieval/
 │
 ├── tests/
-├── app.py
+│   ├── test_chunker.py
+│   ├── test_document_loader.py
+│   └── test_ingestion.py
+│
+├── .dockerignore
+├── .gitignore
+├── Dockerfile
+├── compose.yaml
 ├── pyproject.toml
 ├── requirements.txt
-├── uv.lock
-├── .python-version
-├── .gitignore
 └── README.md
 ```
 
@@ -225,55 +340,149 @@ enterprise-rag-assistant/
 
 ## Installation
 
-### Clone the repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/nakkaganesh/enterprise-rag-assistant.git
 cd enterprise-rag-assistant
 ```
 
-### Install dependencies with uv
+### 2. Install uv
+
+If `uv` is not already installed, install it using the official uv installation instructions.
+
+### 3. Install Dependencies
 
 ```bash
 uv sync
 ```
 
----
+### 4. Configure Environment Variables
 
-## Environment Variables
-
-Create a `.env` file or export the required environment variables.
-
-The OpenAI client requires:
+Create a `.env` file in the project root.
 
 ```text
-OPENAI_API_KEY=your_api_key
+OPENAI_API_KEY=your_openai_api_key
 ```
 
-Optional configuration:
-
-```text
-DATA_DIRECTORY=data/raw
-VECTOR_STORE_DIRECTORY=data/vector_store
-RAG_API_URL=http://127.0.0.1:8000
-```
-
-Never commit API keys or `.env` files to Git.
+Never commit `.env` or API credentials to GitHub.
 
 ---
 
-## Run the FastAPI Backend
+## Run Locally
+
+### Backend
+
+Start the FastAPI application:
 
 ```bash
-uv run python -m uvicorn enterprise_rag.api.main:app --reload
+uv run uvicorn enterprise_rag.api.main:app --host 0.0.0.0 --port 8000
 ```
 
-The API runs locally on port `8000` by default.
+Backend:
+
+```text
+http://localhost:8000
+```
+
+Health endpoint:
+
+```text
+http://localhost:8000/health
+```
+
+FastAPI Swagger documentation:
+
+```text
+http://localhost:8000/docs
+```
+
+### Frontend
+
+In another terminal:
+
+```bash
+uv run streamlit run frontend/app.py
+```
+
+Then open:
+
+```text
+http://localhost:8501
+```
+
+---
+
+## Run with Docker
+
+Build and start the complete application:
+
+```bash
+docker compose up --build
+```
+
+Or run it in detached mode:
+
+```bash
+docker compose up --build -d
+```
+
+Check running services:
+
+```bash
+docker compose ps
+```
+
+The application exposes:
+
+```text
+FastAPI Backend
+http://localhost:8000
+
+Streamlit Frontend
+http://localhost:8501
+```
+
+Stop the application:
+
+```bash
+docker compose down
+```
+
+---
+
+## Docker Architecture
+
+```text
+Browser
+   ↓
+Streamlit Container
+   ↓
+FastAPI Container
+   ↓
+RAG Engine
+   ↓
+FAISS + BM25
+   ↓
+RRF
+   ↓
+Reranker
+   ↓
+LLM
+   ↓
+Answer + Citations
+```
+
+Docker Compose manages the frontend and backend services together for local development.
+
+---
+
+## API
 
 ### Health Check
 
-```bash
-curl http://127.0.0.1:8000/health
+```http
+GET /health
 ```
 
 Example response:
@@ -284,15 +493,18 @@ Example response:
 }
 ```
 
----
+### Ask a Question
 
-## Ask Questions Through the API
+```http
+POST /ask
+```
 
-```bash
-curl -X POST \
-  http://127.0.0.1:8000/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question":"How many days per week can employees work remotely?"}'
+Example request:
+
+```json
+{
+  "question": "How many days per week can employees work remotely?"
+}
 ```
 
 Example response:
@@ -313,118 +525,97 @@ Example response:
 
 ---
 
-## Document Upload
-
-Documents can be uploaded through the API.
-
-```bash
-curl -X POST \
-  http://127.0.0.1:8000/documents/upload \
-  -F "file=@policy.pdf"
-```
-
-The system:
-
-```text
-Upload
-  ↓
-Validate document
-  ↓
-Store document
-  ↓
-Load and chunk knowledge base
-  ↓
-Generate embeddings
-  ↓
-Rebuild FAISS
-  ↓
-Rebuild BM25
-  ↓
-Document becomes searchable
-```
-
-Supported uploads:
-
-- TXT
-- PDF
-- DOCX
-
----
-
-## Run the Streamlit Interface
-
-Keep the FastAPI backend running and start Streamlit in another terminal:
-
-```bash
-uv run python -m streamlit run src/enterprise_rag/ui/app.py
-```
-
-The UI provides:
-
-- Chat-based document Q&A
-- Source citations
-- Document upload
-- Automatic indexing
-
----
-
-## Evaluation
-
-The project contains an automated evaluation pipeline covering:
-
-- Answer correctness
-- Citation correctness
-- Unknown-question refusal
-
-Run:
-
-```bash
-uv run python -m enterprise_rag.evaluation.evaluator
-```
-
-Current controlled evaluation set:
-
-```text
-Answer accuracy:    6/6
-Citation accuracy:  6/6
-Unknown refusal:    1/1
-```
-
-These results represent the included small controlled evaluation dataset and should not be interpreted as general 100% RAG accuracy.
-
----
-
 ## Testing
 
-Run the automated tests:
+Run the automated test suite:
 
 ```bash
 uv run python -m pytest
 ```
 
-Current test suite:
+Current verified result:
 
 ```text
 4 passed
 ```
 
-The tests cover core document loading, chunking, and ingestion functionality.
+The currently collected automated tests cover core document-processing functionality including:
+
+- Document loading
+- Text chunking
+- Document ingestion
+
+The deployed application has also been manually tested end-to-end for:
+
+- Streamlit-to-FastAPI communication
+- Document retrieval
+- Hybrid search
+- RRF
+- Reranking
+- LLM answer generation
+- Source citations
+- Unknown-question handling
+- Docker deployment
+- Railway deployment
 
 ---
 
-## Vector Store Persistence
+## Production Deployment
 
-The FAISS index and associated chunk metadata can be persisted locally.
+The application is deployed using **Railway**.
+
+The production architecture separates the frontend and backend:
 
 ```text
-data/vector_store/
-├── index.faiss
-└── chunks.json
+User
+ ↓
+Public Streamlit Service
+ ↓
+API_URL
+ ↓
+FastAPI Service
+ ↓
+RAG Engine
+ ↓
+FAISS + BM25
+ ↓
+RRF
+ ↓
+Reranker
+ ↓
+LLM
+ ↓
+Answer + Citations
 ```
 
-This prevents document embeddings from being regenerated every time the application starts.
+The frontend receives the backend URL through an environment variable:
 
-Generated vector-store files are excluded from Git.
+```text
+API_URL=<FASTAPI_BACKEND_URL>
+```
+
+The OpenAI API key is stored as a deployment environment variable rather than being embedded in source code.
+
+---
+
+## Security
+
+Sensitive credentials are managed through environment variables.
+
+The `.env` file is excluded from version control.
+
+```text
+.env
+```
+
+API keys should never be stored directly in:
+
+- Python source files
+- Dockerfiles
+- README files
+- Git commits
+- Public deployment configuration
+- Screenshots
 
 ---
 
@@ -433,43 +624,100 @@ Generated vector-store files are excluded from Git.
 The architecture can be adapted for:
 
 - Employee policy assistants
-- Internal knowledge bases
-- HR document Q&A
-- Technical documentation assistants
-- Compliance knowledge systems
+- HR knowledge bases
+- Internal company documentation
+- Security-policy assistants
+- Technical documentation search
 - Customer-support knowledge bases
-- Research-document assistants
+- Compliance document search
+- Enterprise knowledge management
+
+---
+
+## Key Engineering Concepts Demonstrated
+
+This project demonstrates practical understanding of:
+
+- Retrieval-Augmented Generation
+- Embeddings
+- Vector databases
+- Semantic search
+- Keyword search
+- Hybrid retrieval
+- Reciprocal Rank Fusion
+- Reranking
+- Context-window optimization
+- Prompt grounding
+- Hallucination reduction
+- Source attribution
+- REST API development
+- Frontend/backend architecture
+- Containerization
+- Environment management
+- Automated testing
+- Cloud deployment
 
 ---
 
 ## Future Improvements
 
-Potential production-scale improvements include:
+Potential production improvements include:
 
-- Incremental document indexing
+- Persistent cloud storage for uploaded documents and indexes
 - Authentication and authorization
-- Multi-user document collections
-- Background ingestion jobs
-- Retrieval and generation observability
-- Larger evaluation datasets
-- Semantic caching
-- Managed vector databases
-- Cloud deployment
-- CI/CD
-- Containerization with Docker
+- User-specific document collections
+- PostgreSQL metadata storage
+- Object storage
+- Incremental document indexing
+- Document deletion and index synchronization
+- Retrieval evaluation using Recall@K and MRR
+- Larger automated RAG evaluation dataset
+- LLM-based evaluation
+- Observability and tracing
+- Request logging
+- Rate limiting
+- Caching
+- CI/CD with GitHub Actions
+- Background ingestion workers
+- Production monitoring
+- Multi-user support
+
+---
+
+## Development Status
+
+Core RAG pipeline: **Completed**
+
+Hybrid retrieval: **Completed**
+
+RRF fusion: **Completed**
+
+Reranking: **Completed**
+
+Source citations: **Completed**
+
+FastAPI backend: **Completed**
+
+Streamlit frontend: **Completed**
+
+Dockerization: **Completed**
+
+Railway deployment: **Completed**
+
+Production-grade persistent cloud storage: **Future improvement**
 
 ---
 
 ## Author
 
-**Ganesh Nakka**
+**Nakka Ganesh**
 
-AI / ML & Generative AI Engineer
+AI / Machine Learning Developer
 
 GitHub: `nakkaganesh`
 
 ---
 
-## Disclaimer
+## License
 
-This project is an educational and portfolio implementation of an enterprise-style RAG architecture. Production deployments would require additional security, scalability, monitoring, access control, and evaluation measures.
+This project is intended for educational, portfolio, and demonstration purposes.
