@@ -6,6 +6,17 @@ The system combines **FAISS semantic search** and **BM25 keyword search**, fuses
 
 The application includes a **FastAPI backend**, **Streamlit frontend**, automated tests, Docker containerization, and cloud deployment on Railway.
 
+
+## Live Demo
+
+The Enterprise RAG Assistant is deployed on Railway with separate Streamlit frontend and FastAPI backend services.
+
+**Live Application:** [Open Enterprise RAG Assistant](https://enterprise-rag-frontend-production.up.railway.app)
+
+### Application Preview
+
+![Enterprise RAG Assistant Demo](docs/app-demo.png)
+
 ---
 
 ## Features
