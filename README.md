@@ -62,6 +62,8 @@ This provides a stronger retrieval pipeline for enterprise documents containing 
 
 ## Architecture
 
+![Enterprise RAG Assistant Architecture](docs/architecture.png)
+
 ### Document Ingestion Pipeline
 
 ```text
