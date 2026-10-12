@@ -3,7 +3,7 @@ def chunk_text(text: str,chunk_size: int = 100,overlap: int = 20) -> list[str]:
     """Split text into overlapping word chunks."""
 
 
-    if overlap >= chunk_size:
+    if chunk_size <= 0 or overlap < 0 or overlap >= chunk_size:
         raise ValueError("overlap must be smaller than chunk_size")
 
     words = text.split()
@@ -22,6 +22,8 @@ def chunk_text(text: str,chunk_size: int = 100,overlap: int = 20) -> list[str]:
 
         chunks.append(chunk)
 
+        if end >= len(words):
+            break
         start = end - overlap
 
     return chunks

@@ -49,6 +49,9 @@ class RAGEngine:
                 for chunk in self.chunks
             ]
 
+            if not texts:
+                raise ValueError("No extractable text found in data/raw")
+
             embeddings = self.embedder.embed_documents(
                 texts
             )
@@ -117,54 +120,36 @@ class RAGEngine:
             "citations": citations,
         }
     def rebuild_index(
-    self,
-    data_directory: str = "data/raw",
-    vector_store_directory: str = "data/vector_store",
-) -> dict:
-        """Rebuild FAISS and BM25 after documents change."""
-
-        # Load and chunk all documents again
-        self.chunks = prepare_chunks(
-            data_directory,
-            chunk_size=100,
-            overlap=20,
-        )
-
-        # Generate embeddings
-        texts = [
-            chunk["text"]
-            for chunk in self.chunks
-        ]
+        self,
+        data_directory: str = "data/raw",
+        vector_store_directory: str = "data/vector_store",
+    ) -> dict:
+        """Build a new index before switching the live retrieval objects."""
+        chunks = prepare_chunks(data_directory, chunk_size=100, overlap=20)
+        if not chunks:
+            raise ValueError("No extractable text found in the documents")
 
         embeddings = self.embedder.embed_documents(
-            texts
+            [chunk["text"] for chunk in chunks]
         )
+        new_store = VectorStore()
+        new_store.add(chunks, embeddings)
+        new_bm25 = BM25Search()
+        new_bm25.add(chunks)
+        new_hybrid = HybridSearch(new_store, new_bm25, self.embedder)
 
-        # Build a fresh FAISS store
-        self.vector_store = VectorStore()
+        # Persist to temporary files before replacing saved index files.
+        import os
+        import tempfile
+        store_path = Path(vector_store_directory)
+        store_path.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=store_path.parent) as tmp:
+            new_store.save(tmp)
+            for name in ("index.faiss", "chunks.json"):
+                os.replace(Path(tmp) / name, store_path / name)
 
-        self.vector_store.add(
-            self.chunks,
-            embeddings,
-        )
-
-        # Persist it
-        self.vector_store.save(
-            vector_store_directory
-        )
-
-        # Rebuild BM25
-        self.bm25 = BM25Search()
-        self.bm25.add(self.chunks)
-
-        # Reconnect hybrid retrieval to new stores
-        self.hybrid = HybridSearch(
-            self.vector_store,
-            self.bm25,
-            self.embedder,
-        )
-
-        return {
-            "status": "success",
-            "chunks": len(self.chunks),
-        }
+        self.chunks = chunks
+        self.vector_store = new_store
+        self.bm25 = new_bm25
+        self.hybrid = new_hybrid
+        return {"status": "success", "chunks": len(chunks)}

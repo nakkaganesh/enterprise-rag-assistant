@@ -10,7 +10,13 @@ def ingest_directory(directory):
 
     all_documents = []
 
-    for file_path in folder.iterdir():
+    if not folder.exists():
+        return []
+
+    for file_path in sorted(folder.iterdir()):
+        if not file_path.is_file():
+            continue
+
 
         if file_path.suffix.lower() not in {
             ".txt",

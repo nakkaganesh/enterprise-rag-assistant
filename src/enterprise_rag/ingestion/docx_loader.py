@@ -15,7 +15,7 @@ def load_docx(file_path:str | Path)-> list[dict]:
 
     for paragraph_number,paragraph in enumerate(document.paragraphs,start=1):
 
-        text=paragraph.strip()
+        text=paragraph.text.strip()
 
         if not text:
             continue
